@@ -505,6 +505,99 @@ app.post('/api/table/:tableName', async (req, res) => {
   }
 });
 
+// Endpoint para obtener el progreso del usuario
+app.get('/api/user/:userId/progress', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const connection = await getConnection();
+    
+    // Obtener progreso detallado del usuario
+    const [progressData] = await connection.execute(`
+      SELECT 
+        p.progress_id,
+        p.user_id,
+        p.lesson_id,
+        p.completed_at,
+        p.time_spent,
+        p.is_completed,
+        c.title as course_title,
+        c.course_id,
+        c.duration_hours as course_duration
+      FROM progress p
+      LEFT JOIN courses c ON p.lesson_id = c.course_id
+      WHERE p.user_id = ?
+      ORDER BY p.completed_at DESC
+    `, [userId]);
+    
+    // Calcular estadísticas generales
+    const [stats] = await connection.execute(`
+      SELECT 
+        COUNT(*) as total_lessons,
+        COUNT(CASE WHEN is_completed = 1 THEN 1 END) as completed_lessons,
+        SUM(time_spent) as total_time_spent,
+        COUNT(DISTINCT lesson_id) as unique_courses
+      FROM progress 
+      WHERE user_id = ?
+    `, [userId]);
+    
+    // Obtener cursos únicos con progreso
+    const [courseProgress] = await connection.execute(`
+      SELECT 
+        c.course_id,
+        c.title,
+        c.duration_hours,
+        COUNT(p.progress_id) as lessons_taken,
+        COUNT(CASE WHEN p.is_completed = 1 THEN 1 END) as lessons_completed,
+        SUM(p.time_spent) as time_spent,
+        MAX(p.completed_at) as last_accessed
+      FROM courses c
+      LEFT JOIN progress p ON c.course_id = p.lesson_id AND p.user_id = ?
+      WHERE p.user_id IS NOT NULL
+      GROUP BY c.course_id, c.title, c.duration_hours
+      ORDER BY last_accessed DESC
+    `, [userId]);
+    
+    await connection.end();
+    
+    // Calcular progreso porcentual por curso
+    const coursesWithProgress = courseProgress.map(course => {
+      const progressPercentage = course.duration_hours > 0 
+        ? Math.round((course.time_spent / (course.duration_hours * 60)) * 100) // Convertir horas a minutos
+        : 0;
+      
+      return {
+        ...course,
+        progress_percentage: Math.min(progressPercentage, 100), // No más del 100%
+        status: course.lessons_completed > 0 ? 'in-progress' : 'not-started'
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        user_id: userId,
+        progress_details: progressData,
+        statistics: stats[0] || {
+          total_lessons: 0,
+          completed_lessons: 0,
+          total_time_spent: 0,
+          unique_courses: 0
+        },
+        courses: coursesWithProgress
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error obteniendo progreso del usuario:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error interno del servidor',
+      details: error.message 
+    });
+  }
+});
+
 const server = app.listen(PORT, async () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   
