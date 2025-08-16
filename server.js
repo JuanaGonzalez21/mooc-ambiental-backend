@@ -1,4 +1,4 @@
-require('dotenv').config(); // ← AÑADIR ESTA LÍNEA AL INICIO
+require('dotenv').config();
 
 const express = require('express');
 const mysql = require('mysql2/promise');
@@ -6,15 +6,45 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-const PORT = process.env.PORT || 3001; // ← USAR VARIABLE DE ENTORNO
+const PORT = process.env.PORT || 3001;
 
-// Configuración CORS actualizada
+// Configuración CORS corregida para desarrollo
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'https://tu-frontend.vercel.app' // Añadir cuando despliegues
+  origin: function (origin, callback) {
+    // Permitir solicitudes sin origin (como Postman) o desde localhost
+    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Lista de orígenes permitidos
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://localhost:3000',
+      'https://localhost:3001',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
+    
+    // Verificar si el origen está en la lista o permitir todos para desarrollo
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    // Permitir todos los orígenes temporalmente
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'X-HTTP-Method-Override'
   ],
-  credentials: true
+  optionsSuccessStatus: 200
 }));
 
 app.use(express.json());
@@ -425,7 +455,7 @@ app.post('/api/table/:tableName', async (req, res) => {
 });
 
 const server = app.listen(PORT, async () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
   
   try {
     const connection = await getConnection();
