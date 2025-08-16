@@ -324,6 +324,7 @@ app.get('/api/courses', async (req, res) => {
         c.is_published,
         c.created_at,
         c.updated_at,
+        c.name_course,
         cat.name as category_name,
         CONCAT(u.first_name, ' ', u.last_name) as instructor_name
       FROM courses c
@@ -362,6 +363,7 @@ app.get('/api/courses/:courseId', async (req, res) => {
         c.is_published,
         c.created_at,
         c.updated_at,
+        c.name_course,
         cat.name as category_name,
         cat.icon as category_icon,
         cat.color as category_color,
@@ -388,6 +390,55 @@ app.get('/api/courses/:courseId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error obteniendo curso:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// API para obtener curso por name_course
+app.get('/api/courses/by-name/:courseName', async (req, res) => {
+  try {
+    const { courseName } = req.params;
+    const connection = await getConnection();
+    
+    const [courses] = await connection.execute(`
+      SELECT 
+        c.course_id,
+        c.title,
+        c.description,
+        c.category_id,
+        c.instructor_id,
+        c.duration_hours,
+        c.level,
+        c.is_published,
+        c.created_at,
+        c.updated_at,
+        c.name_course,
+        cat.name as category_name,
+        cat.icon as category_icon,
+        cat.color as category_color,
+        CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+        u.email as instructor_email
+      FROM courses c
+      LEFT JOIN categories cat ON c.category_id = cat.category_id
+      LEFT JOIN users u ON c.instructor_id = u.user_id
+      WHERE c.name_course = ? AND c.is_published = 1
+    `, [courseName]);
+    
+    await connection.end();
+    
+    if (courses.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Curso no encontrado'
+      });
+    }
+    
+    res.json({
+      success: true,
+      course: courses[0]
+    });
+  } catch (error) {
+    console.error('Error obteniendo curso por nombre:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
