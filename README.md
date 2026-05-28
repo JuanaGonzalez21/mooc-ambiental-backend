@@ -8,7 +8,7 @@
 ![JWT](https://img.shields.io/badge/JWT-000000?logo=jsonwebtokens&logoColor=white)
 
 🔗 **Repo del frontend:** [mooc-ambiental-frontend](https://github.com/JuanaGonzalez21/mooc-ambiental-frontend)  
-🌐 **Sitio en vivo:** [mooc-ambiental.vercel.app](https://mooc-ambiental-frontend.vercel.app)
+🌐 **Sitio en vivo:** [mooc-ambiental.vercel.app](https://mooc-ambiental.vercel.app)
 
 ---
 
