@@ -16,13 +16,22 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
 
+const allowedOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(o => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    // Peticiones sin origen (Postman, curl, health checks)
+    if (!origin) return callback(null, true);
+
+    const clean = origin.replace(/\/$/, '');
+
+    if (clean.includes('localhost') || clean.includes('127.0.0.1')) {
       return callback(null, true);
     }
-    const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
-    if (process.env.NODE_ENV === 'development' || allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(clean)) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));
